@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import readline
+import select
 import subprocess
 import sys
 from pathlib import Path
@@ -305,8 +306,7 @@ def main() -> None:
     try:
         while True:
             try:
-                print_prompt()
-                user_input = input()
+                user_input = _read_multiline_input()
             except EOFError:
                 print()
                 break
@@ -335,6 +335,27 @@ def main() -> None:
                 print_error(str(exc))
     finally:
         _exit_summary(session, config, histfile)
+
+
+def _read_multiline_input() -> str:
+    """Read input, collecting multi-line pastes into a single string.
+
+    After readline returns the first line, we drain any data already
+    buffered on stdin (i.e. remaining lines from a paste) so the
+    entire block is treated as one prompt instead of N separate turns.
+    """
+    print_prompt()
+    first_line = input()
+    lines = [first_line]
+
+    # Drain buffered lines from a multi-line paste (50 ms window)
+    while select.select([sys.stdin], [], [], 0.05)[0]:
+        line = sys.stdin.readline()
+        if not line:  # EOF
+            break
+        lines.append(line.rstrip("\n"))
+
+    return "\n".join(lines)
 
 
 def _exit_summary(session: Session, config: Config, histfile: Path) -> None:
