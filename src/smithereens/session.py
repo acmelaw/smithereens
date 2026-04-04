@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from .config import Config
-from .tui import console, print_dim, print_success
 
 
 @dataclass
@@ -45,12 +44,16 @@ class Session:
 
     # ── Compaction ────────────────────────────────────────────
 
-    def maybe_compact(self) -> None:
-        """Trim old messages if history exceeds max_messages."""
-        if len(self.messages) > self.config.max_messages:
-            keep = self.config.max_messages
-            self.messages = self.messages[-keep:]
-            print_dim(f"  (compacted: kept last {keep} messages)")
+    def maybe_compact(self) -> int | None:
+        """Trim old messages if history exceeds max_messages.
+
+        Returns the number of messages kept, or None if no compaction was needed.
+        """
+        if len(self.messages) <= self.config.max_messages:
+            return None
+        keep = self.config.max_messages
+        self.messages = self.messages[-keep:]
+        return keep
 
     # ── Persistence ───────────────────────────────────────────
 
@@ -72,24 +75,29 @@ class Session:
         return path
 
     @classmethod
+    def _recent_sessions(cls, sessions_dir: Path, limit: int = 10) -> list[Path]:
+        """Return up to *limit* session files, newest first."""
+        if not sessions_dir.exists():
+            return []
+        return sorted(
+            sessions_dir.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )[:limit]
+
+    @classmethod
     def resume(cls, target: str, config: Config) -> Session:
         """Resume a session from disk by number or ID prefix."""
         sessions_dir = config.sessions_dir
         path: Path | None = None
 
         if target.isdigit():
-            files = sorted(
-                sessions_dir.glob("*.json"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
+            files = cls._recent_sessions(sessions_dir, limit=100)
             idx = int(target) - 1
             if 0 <= idx < len(files):
                 path = files[idx]
-        else:
-            matches = sorted(sessions_dir.glob(f"{target}*.json"))
-            if matches:
-                path = matches[0]
+        elif matches := sorted(sessions_dir.glob(f"{target}*.json")):
+            path = matches[0]
 
         if not path or not path.is_file():
             raise FileNotFoundError(f"Session not found: {target}")
@@ -108,33 +116,9 @@ class Session:
         return session
 
     @classmethod
-    def list_sessions(cls, config: Config) -> None:
-        """Print a list of saved sessions."""
-        sessions_dir = config.sessions_dir
-        if not sessions_dir.exists():
-            print_dim("  No saved sessions")
-            return
-
-        files = sorted(
-            sessions_dir.glob("*.json"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )[:10]
-
-        if not files:
-            print_dim("  No saved sessions")
-            return
-
-        console.print("\n[bold]Saved sessions:[/]\n")
-        for i, f in enumerate(files, 1):
-            data = json.loads(f.read_text())
-            sid = data.get("id", "?")
-            turns = data.get("turns", "?")
-            model = data.get("model", "?")
-            cwd = data.get("cwd", "?")
-            console.print(
-                f"  [cyan]{i})[/] {sid} [dim]({turns} turns, {model})[/]"
-            )
-            console.print(f"     [dim]{cwd}[/]")
-
-        console.print("\n[dim]Usage: /resume <number> or /resume <id>[/]\n")
+    def list_sessions(cls, config: Config) -> list[dict[str, Any]]:
+        """Return metadata for the most recent saved sessions."""
+        return [
+            json.loads(f.read_text())
+            for f in cls._recent_sessions(config.sessions_dir)
+        ]

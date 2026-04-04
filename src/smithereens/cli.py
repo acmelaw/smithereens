@@ -9,13 +9,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .agent import (
+from . import git
+from .agent import process_turn
+from .config import Config
+from .dspy_tasks import (
     configure_dspy,
     generate_commit_message,
-    process_turn,
     summarize_conversation,
 )
-from .config import Config
 from .session import Session
 from .tui import (
     console,
@@ -75,7 +76,7 @@ def handle_command(cmd: str, session: Session, config: Config) -> bool:
             if arg:
                 _resume_into(arg, session, config)
             else:
-                Session.list_sessions(config)
+                _list_sessions(config)
 
         case "/diff":
             _show_diff()
@@ -136,8 +137,6 @@ def _compact_with_dspy(session: Session, config: Config) -> None:
     except Exception:
         # Fallback: simple truncation
         session.maybe_compact()
-
-
 def _resume_into(target: str, session: Session, config: Config) -> None:
     """Resume a session, copying state into the current session."""
     try:
@@ -154,67 +153,51 @@ def _resume_into(target: str, session: Session, config: Config) -> None:
         print_error(str(exc))
 
 
+def _list_sessions(config: Config) -> None:
+    """Display saved sessions."""
+    sessions = Session.list_sessions(config)
+    if not sessions:
+        print_dim("  No saved sessions")
+        return
+
+    console.print("\n[bold]Saved sessions:[/]\n")
+    for i, data in enumerate(sessions, 1):
+        sid, turns = data.get("id", "?"), data.get("turns", "?")
+        model, cwd = data.get("model", "?"), data.get("cwd", "?")
+        console.print(f"  [cyan]{i})[/] {sid} [dim]({turns} turns, {model})[/]")
+        console.print(f"     [dim]{cwd}[/]")
+    console.print("\n[dim]Usage: /resume <number> or /resume <id>[/]\n")
+
+
 def _show_diff() -> None:
-    try:
-        subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(["git", "diff", "--stat"])
-        print()
-        subprocess.run(["git", "diff"])
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not git.in_repo():
         print_warning("Not in a git repository")
+        return
+    subprocess.run(["git", "diff", "--stat"])
+    print()
+    subprocess.run(["git", "diff"])
 
 
 def _handle_commit(session: Session, config: Config) -> None:
     """Generate a commit message with DSPy and optionally commit."""
-    try:
-        subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not git.in_repo():
         print_warning("Not in a git repository")
         return
 
-    # Check for staged or unstaged changes
-    staged = subprocess.run(
-        ["git", "diff", "--cached", "--stat"],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-
-    if not staged:
-        unstaged = subprocess.run(
-            ["git", "diff", "--stat"],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        if not unstaged:
+    # Ensure there are staged changes
+    if not git.run("diff", "--cached", "--stat"):
+        if not git.run("diff", "--stat"):
             print_warning("No changes to commit")
             return
         print_dim("  No staged changes. Staging all changes...")
         subprocess.run(["git", "add", "-A"])
 
-    # Get diff and log
-    diff = subprocess.run(
-        ["git", "diff", "--cached"],
-        capture_output=True,
-        text=True,
-    ).stdout[:8000]
-    log = subprocess.run(
-        ["git", "log", "--oneline", "-5"],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    diff = git.run("diff", "--cached")[:8000]
+    log = git.run("log", "--oneline", "-5") or "(no history)"
 
-    # Use DSPy to generate the message
     try:
         configure_dspy(config.model)
-        result = generate_commit_message(diff=diff, recent_log=log or "(no history)")
+        result = generate_commit_message(diff=diff, recent_log=log)
         message = result.message.strip().strip("\"'")
 
         console.print(f"\n[bold]Proposed commit message:[/]\n  {message}\n")
@@ -234,7 +217,6 @@ def _handle_commit(session: Session, config: Config) -> None:
             print_dim("  Cancelled")
     except Exception as exc:
         print_error(f"DSPy commit failed: {exc}")
-        # Fall back to the agent loop for flexibility
         process_turn(
             "Look at `git diff --cached` and recent `git log --oneline -5`. "
             "Generate a concise commit message and run `git commit -m '<message>'`.",
