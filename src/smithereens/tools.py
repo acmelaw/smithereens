@@ -201,7 +201,7 @@ def _tool_bash(args: dict[str, Any], config: Config) -> str:
     return output.strip() or "(no output)"
 
 
-def _tool_read(args: dict[str, Any], _config: Config) -> str:
+def _tool_read(args: dict[str, Any], config: Config) -> str:
     file_path = args.get("file_path", "")
     offset = int(args.get("offset", 1))
     limit = int(args.get("limit", 2000))
@@ -224,7 +224,7 @@ def _tool_read(args: dict[str, Any], _config: Config) -> str:
     return "\n".join(numbered)
 
 
-def _tool_edit(args: dict[str, Any], _config: Config) -> str:
+def _tool_edit(args: dict[str, Any], config: Config) -> str:
     file_path = args.get("file_path", "")
     old_string = args.get("old_string", "")
     new_string = args.get("new_string", "")
@@ -250,7 +250,7 @@ def _tool_edit(args: dict[str, Any], _config: Config) -> str:
     return f"Edited {file_path}: replaced 1 occurrence"
 
 
-def _tool_write(args: dict[str, Any], _config: Config) -> str:
+def _tool_write(args: dict[str, Any], config: Config) -> str:
     file_path = args.get("file_path", "")
     content = args.get("content", "")
 
@@ -267,7 +267,7 @@ def _tool_write(args: dict[str, Any], _config: Config) -> str:
     return f"Wrote {file_path} ({lines} lines)"
 
 
-def _tool_glob(args: dict[str, Any], _config: Config) -> str:
+def _tool_glob(args: dict[str, Any], config: Config) -> str:
     pattern = args.get("pattern", "")
     search_path = args.get("path", ".")
 
@@ -290,7 +290,7 @@ def _tool_glob(args: dict[str, Any], _config: Config) -> str:
     return "\n".join(str(m) for m in matches) or "(no matches)"
 
 
-def _tool_grep(args: dict[str, Any], _config: Config) -> str:
+def _tool_grep(args: dict[str, Any], config: Config) -> str:
     pattern = args.get("pattern", "")
     search_path = args.get("path", ".")
     file_glob = args.get("glob", "")
