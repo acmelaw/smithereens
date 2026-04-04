@@ -7,13 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smithereens.agent import (
-    CommitMessage,
-    ConversationSummary,
-    StreamResult,
-    _gen_tool_id,
-    build_system_prompt,
-)
+from smithereens.agent import StreamResult, _gen_tool_id
+from smithereens.dspy_tasks import CommitMessage, ConversationSummary
+from smithereens.prompt import build_system_prompt
 
 
 # ── System prompt ─────────────────────────────────────────────

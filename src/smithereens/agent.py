@@ -1,4 +1,4 @@
-"""Agent loop — litellm streaming with native tool calling + DSPy structured tasks.
+"""Agent loop — litellm streaming with tool calling.
 
 Uses litellm's native tool calling for all providers. For Ollama models, use
 the ``ollama_chat/`` prefix (not ``ollama/``) so litellm routes through the
@@ -8,153 +8,18 @@ chat completions endpoint which supports function calling.
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-import dspy
 import litellm
 
 from .config import Config
+from .prompt import build_system_prompt
 from .session import Session
 from .tools import TOOL_SCHEMAS, execute_tool
 from .tui import console, print_dim, print_error, print_warning, spinner
-
-# ── DSPy structured modules ──────────────────────────────────
-
-
-class CommitMessage(dspy.Signature):
-    """Generate a concise conventional commit message from a git diff."""
-
-    diff: str = dspy.InputField(desc="output of git diff --cached")
-    recent_log: str = dspy.InputField(desc="recent git log --oneline")
-    message: str = dspy.OutputField(
-        desc="commit message: a short imperative subject line, optionally followed by a blank line and body"
-    )
-
-
-class ConversationSummary(dspy.Signature):
-    """Summarize conversation history to preserve key context while reducing tokens."""
-
-    conversation: str = dspy.InputField(desc="conversation messages as text")
-    summary: str = dspy.OutputField(
-        desc="concise summary preserving key decisions, files changed, and context"
-    )
-
-
-generate_commit_message = dspy.ChainOfThought(CommitMessage)
-summarize_conversation = dspy.ChainOfThought(ConversationSummary)
-
-
-def configure_dspy(model: str) -> None:
-    """Configure DSPy to use the same model via litellm."""
-    dspy.configure(lm=dspy.LM(model, cache=False))
-
-
-# ── Git helpers ───────────────────────────────────────────────
-
-
-def _git(*args: str) -> str:
-    """Run a git command and return stripped stdout (empty on failure)."""
-    try:
-        return subprocess.run(
-            ["git", *args], capture_output=True, text=True,
-        ).stdout.strip()
-    except FileNotFoundError:
-        return ""
-
-
-def in_git_repo() -> bool:
-    """Return True if cwd is inside a git work tree."""
-    try:
-        subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True, check=True,
-        )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
-
-
-# ── System prompt ─────────────────────────────────────────────
-
-
-def build_system_prompt() -> str:
-    """Build the system prompt with environment and project context."""
-    import os
-    uname = os.uname()
-    cwd = Path.cwd()
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    parts = [
-        "You are smithereens, a lightweight AI coding assistant.\n"
-        "You have tools for reading, editing, and writing files, "
-        "running bash commands, and searching codebases.\n"
-        "\n"
-        "Environment:\n"
-        f"- Working directory: {cwd}\n"
-        f"- Platform: {uname.sysname} {uname.machine}\n"
-        f"- Date: {today}\n"
-        "\n"
-        "Guidelines:\n"
-        "- Be concise and direct\n"
-        "- Use tools to explore before making changes\n"
-        "- Prefer simple solutions\n"
-        "- When editing files, read them first\n"
-        "- Respond in natural language. Use tools when actions are needed.",
-    ]
-
-    if claude_md := _load_claude_md_files(cwd):
-        parts.append(f"\n# Project Instructions\n\n{claude_md}")
-
-    if git_ctx := _get_git_context():
-        parts.append(f"\n# Git Context\n\n{git_ctx}")
-
-    return "\n".join(parts)
-
-
-def _load_claude_md_files(start: Path) -> str:
-    """Walk up collecting CLAUDE.md files (root first, most specific last)."""
-    found: list[Path] = []
-    d = start.resolve()
-    while True:
-        for candidate in [d / "CLAUDE.md", d / ".claude" / "CLAUDE.md"]:
-            if candidate.is_file():
-                found.append(candidate)
-        parent = d.parent
-        if parent == d:
-            break
-        d = parent
-
-    home_claude = Path.home() / ".claude" / "CLAUDE.md"
-    if home_claude.is_file() and home_claude not in found:
-        found.append(home_claude)
-
-    return "\n\n".join(
-        f"## From {f}\n\n{f.read_text()}" for f in reversed(found)
-    )
-
-
-def _get_git_context() -> str:
-    """Gather current branch, status, recent commits."""
-    if not in_git_repo():
-        return ""
-
-    branch = _git("branch", "--show-current")
-    parts = [f"Branch: {branch or 'detached'}"]
-
-    if status := _git("status", "--short"):
-        parts.append("Uncommitted changes:\n" + "\n".join(status.splitlines()[:20]))
-
-    if log := _git("log", "--oneline", "-5"):
-        parts.append(f"Recent commits:\n{log}")
-
-    return "\n\n".join(parts)
-
 
 # ── Streaming response ────────────────────────────────────────
 
@@ -292,7 +157,8 @@ def process_turn(user_input: str, session: Session, config: Config) -> None:
     result: StreamResult | None = None
 
     for _round in range(config.max_tool_turns):
-        session.maybe_compact()
+        if kept := session.maybe_compact():
+            print_dim(f"  (compacted: kept last {kept} messages)")
 
         result = stream_response(session, config, system_prompt)
         session.update_usage(result.input_tokens, result.output_tokens)

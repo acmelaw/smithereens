@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from .config import Config
-from .tui import console, print_dim, print_success
 
 
 @dataclass
@@ -45,12 +44,16 @@ class Session:
 
     # ── Compaction ────────────────────────────────────────────
 
-    def maybe_compact(self) -> None:
-        """Trim old messages if history exceeds max_messages."""
-        if len(self.messages) > self.config.max_messages:
-            keep = self.config.max_messages
-            self.messages = self.messages[-keep:]
-            print_dim(f"  (compacted: kept last {keep} messages)")
+    def maybe_compact(self) -> int | None:
+        """Trim old messages if history exceeds max_messages.
+
+        Returns the number of messages kept, or None if no compaction was needed.
+        """
+        if len(self.messages) <= self.config.max_messages:
+            return None
+        keep = self.config.max_messages
+        self.messages = self.messages[-keep:]
+        return keep
 
     # ── Persistence ───────────────────────────────────────────
 
@@ -113,19 +116,9 @@ class Session:
         return session
 
     @classmethod
-    def list_sessions(cls, config: Config) -> None:
-        """Print a list of saved sessions."""
-        files = cls._recent_sessions(config.sessions_dir)
-        if not files:
-            print_dim("  No saved sessions")
-            return
-
-        console.print("\n[bold]Saved sessions:[/]\n")
-        for i, f in enumerate(files, 1):
-            data = json.loads(f.read_text())
-            sid, turns = data.get("id", "?"), data.get("turns", "?")
-            model, cwd = data.get("model", "?"), data.get("cwd", "?")
-            console.print(f"  [cyan]{i})[/] {sid} [dim]({turns} turns, {model})[/]")
-            console.print(f"     [dim]{cwd}[/]")
-
-        console.print("\n[dim]Usage: /resume <number> or /resume <id>[/]\n")
+    def list_sessions(cls, config: Config) -> list[dict[str, Any]]:
+        """Return metadata for the most recent saved sessions."""
+        return [
+            json.loads(f.read_text())
+            for f in cls._recent_sessions(config.sessions_dir)
+        ]

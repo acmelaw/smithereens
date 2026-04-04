@@ -9,15 +9,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .agent import (
-    _git,
+from . import git
+from .agent import process_turn
+from .config import Config
+from .dspy_tasks import (
     configure_dspy,
     generate_commit_message,
-    in_git_repo,
-    process_turn,
     summarize_conversation,
 )
-from .config import Config
 from .session import Session
 from .tui import (
     console,
@@ -77,7 +76,7 @@ def handle_command(cmd: str, session: Session, config: Config) -> bool:
             if arg:
                 _resume_into(arg, session, config)
             else:
-                Session.list_sessions(config)
+                _list_sessions(config)
 
         case "/diff":
             _show_diff()
@@ -138,8 +137,6 @@ def _compact_with_dspy(session: Session, config: Config) -> None:
     except Exception:
         # Fallback: simple truncation
         session.maybe_compact()
-
-
 def _resume_into(target: str, session: Session, config: Config) -> None:
     """Resume a session, copying state into the current session."""
     try:
@@ -156,8 +153,24 @@ def _resume_into(target: str, session: Session, config: Config) -> None:
         print_error(str(exc))
 
 
+def _list_sessions(config: Config) -> None:
+    """Display saved sessions."""
+    sessions = Session.list_sessions(config)
+    if not sessions:
+        print_dim("  No saved sessions")
+        return
+
+    console.print("\n[bold]Saved sessions:[/]\n")
+    for i, data in enumerate(sessions, 1):
+        sid, turns = data.get("id", "?"), data.get("turns", "?")
+        model, cwd = data.get("model", "?"), data.get("cwd", "?")
+        console.print(f"  [cyan]{i})[/] {sid} [dim]({turns} turns, {model})[/]")
+        console.print(f"     [dim]{cwd}[/]")
+    console.print("\n[dim]Usage: /resume <number> or /resume <id>[/]\n")
+
+
 def _show_diff() -> None:
-    if not in_git_repo():
+    if not git.in_repo():
         print_warning("Not in a git repository")
         return
     subprocess.run(["git", "diff", "--stat"])
@@ -167,20 +180,20 @@ def _show_diff() -> None:
 
 def _handle_commit(session: Session, config: Config) -> None:
     """Generate a commit message with DSPy and optionally commit."""
-    if not in_git_repo():
+    if not git.in_repo():
         print_warning("Not in a git repository")
         return
 
     # Ensure there are staged changes
-    if not _git("diff", "--cached", "--stat"):
-        if not _git("diff", "--stat"):
+    if not git.run("diff", "--cached", "--stat"):
+        if not git.run("diff", "--stat"):
             print_warning("No changes to commit")
             return
         print_dim("  No staged changes. Staging all changes...")
         subprocess.run(["git", "add", "-A"])
 
-    diff = _git("diff", "--cached")[:8000]
-    log = _git("log", "--oneline", "-5") or "(no history)"
+    diff = git.run("diff", "--cached")[:8000]
+    log = git.run("log", "--oneline", "-5") or "(no history)"
 
     try:
         configure_dspy(config.model)
