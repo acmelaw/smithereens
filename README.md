@@ -1,13 +1,11 @@
 # smithereens
 
-An experimental playground for lightweight LLM interfaces.
+An experimental lightweight LLM interface.
 
-## Status
+## Acknowledgements
 
-This project is currently in a state of **complete rewrite**. 
+Inspired by [claude.sh](https://github.com/jdcodes1/claude-sh).
 
-While some existing code may remain temporarily, the goal is to move toward a fundamentally different implementation. The current direction is undecided, and the architecture is subject to significant changes.
+## License
 
-## Roots
-
-The project acknowledges the influence of [claude.sh](https://github.com/jdcodes1/claude-sh) as a reference for lightweight, efficient tool-use interfaces.
+[MIT](LICENSE.md)
