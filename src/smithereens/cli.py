@@ -344,8 +344,7 @@ def _read_multiline_input() -> str:
     buffered on stdin (i.e. remaining lines from a paste) so the
     entire block is treated as one prompt instead of N separate turns.
     """
-    print_prompt()
-    first_line = input()
+    first_line = input("\033[38;2;204;136;68m❯\033[0m ")
     lines = [first_line]
 
     # Drain buffered lines from a multi-line paste (50 ms window)
