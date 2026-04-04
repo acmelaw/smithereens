@@ -175,7 +175,7 @@ def process_turn(user_input: str, session: Session, config: Config) -> None:
                     "type": "function",
                     "function": {
                         "name": tc["name"],
-                        "arguments": tc["raw_arguments"],
+                        "arguments": json.dumps(tc["arguments"]),
                     },
                 }
                 for tc in result.tool_calls
