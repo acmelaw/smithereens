@@ -1,5 +1,7 @@
 """Terminal UI — spinner, colors, display helpers using Rich."""
 
+from __future__ import annotations
+
 import random
 import sys
 import threading
@@ -37,6 +39,13 @@ class Spinner:
     def __init__(self) -> None:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
+
+    def __enter__(self) -> Spinner:
+        self.start()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.stop()
 
     def start(self) -> None:
         self._stop.clear()

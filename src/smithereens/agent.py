@@ -8,7 +8,6 @@ chat completions endpoint which supports function calling.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import uuid
@@ -53,8 +52,32 @@ summarize_conversation = dspy.ChainOfThought(ConversationSummary)
 
 def configure_dspy(model: str) -> None:
     """Configure DSPy to use the same model via litellm."""
-    lm = dspy.LM(model, cache=False)
-    dspy.configure(lm=lm)
+    dspy.configure(lm=dspy.LM(model, cache=False))
+
+
+# ── Git helpers ───────────────────────────────────────────────
+
+
+def _git(*args: str) -> str:
+    """Run a git command and return stripped stdout (empty on failure)."""
+    try:
+        return subprocess.run(
+            ["git", *args], capture_output=True, text=True,
+        ).stdout.strip()
+    except FileNotFoundError:
+        return ""
+
+
+def in_git_repo() -> bool:
+    """Return True if cwd is inside a git work tree."""
+    try:
+        subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            capture_output=True, check=True,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
 
 
 # ── System prompt ─────────────────────────────────────────────
@@ -62,6 +85,7 @@ def configure_dspy(model: str) -> None:
 
 def build_system_prompt() -> str:
     """Build the system prompt with environment and project context."""
+    import os
     uname = os.uname()
     cwd = Path.cwd()
     today = datetime.now().strftime("%Y-%m-%d")
@@ -84,12 +108,10 @@ def build_system_prompt() -> str:
         "- Respond in natural language. Use tools when actions are needed.",
     ]
 
-    claude_md = _load_claude_md_files(cwd)
-    if claude_md:
+    if claude_md := _load_claude_md_files(cwd):
         parts.append(f"\n# Project Instructions\n\n{claude_md}")
 
-    git_ctx = _get_git_context()
-    if git_ctx:
+    if git_ctx := _get_git_context():
         parts.append(f"\n# Git Context\n\n{git_ctx}")
 
     return "\n".join(parts)
@@ -112,42 +134,23 @@ def _load_claude_md_files(start: Path) -> str:
     if home_claude.is_file() and home_claude not in found:
         found.append(home_claude)
 
-    sections = []
-    for f in reversed(found):
-        sections.append(f"## From {f}\n\n{f.read_text()}")
-    return "\n\n".join(sections)
+    return "\n\n".join(
+        f"## From {f}\n\n{f.read_text()}" for f in reversed(found)
+    )
 
 
 def _get_git_context() -> str:
     """Gather current branch, status, recent commits."""
-    try:
-        subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True, check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not in_git_repo():
         return ""
 
-    parts: list[str] = []
+    branch = _git("branch", "--show-current")
+    parts = [f"Branch: {branch or 'detached'}"]
 
-    branch = subprocess.run(
-        ["git", "branch", "--show-current"],
-        capture_output=True, text=True,
-    ).stdout.strip()
-    parts.append(f"Branch: {branch or 'detached'}")
-
-    status = subprocess.run(
-        ["git", "status", "--short"],
-        capture_output=True, text=True,
-    ).stdout.strip()
-    if status:
+    if status := _git("status", "--short"):
         parts.append("Uncommitted changes:\n" + "\n".join(status.splitlines()[:20]))
 
-    log = subprocess.run(
-        ["git", "log", "--oneline", "-5"],
-        capture_output=True, text=True,
-    ).stdout.strip()
-    if log:
+    if log := _git("log", "--oneline", "-5"):
         parts.append(f"Recent commits:\n{log}")
 
     return "\n\n".join(parts)

@@ -10,8 +10,10 @@ import sys
 from pathlib import Path
 
 from .agent import (
+    _git,
     configure_dspy,
     generate_commit_message,
+    in_git_repo,
     process_turn,
     summarize_conversation,
 )
@@ -155,66 +157,34 @@ def _resume_into(target: str, session: Session, config: Config) -> None:
 
 
 def _show_diff() -> None:
-    try:
-        subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(["git", "diff", "--stat"])
-        print()
-        subprocess.run(["git", "diff"])
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not in_git_repo():
         print_warning("Not in a git repository")
+        return
+    subprocess.run(["git", "diff", "--stat"])
+    print()
+    subprocess.run(["git", "diff"])
 
 
 def _handle_commit(session: Session, config: Config) -> None:
     """Generate a commit message with DSPy and optionally commit."""
-    try:
-        subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not in_git_repo():
         print_warning("Not in a git repository")
         return
 
-    # Check for staged or unstaged changes
-    staged = subprocess.run(
-        ["git", "diff", "--cached", "--stat"],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-
-    if not staged:
-        unstaged = subprocess.run(
-            ["git", "diff", "--stat"],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        if not unstaged:
+    # Ensure there are staged changes
+    if not _git("diff", "--cached", "--stat"):
+        if not _git("diff", "--stat"):
             print_warning("No changes to commit")
             return
         print_dim("  No staged changes. Staging all changes...")
         subprocess.run(["git", "add", "-A"])
 
-    # Get diff and log
-    diff = subprocess.run(
-        ["git", "diff", "--cached"],
-        capture_output=True,
-        text=True,
-    ).stdout[:8000]
-    log = subprocess.run(
-        ["git", "log", "--oneline", "-5"],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    diff = _git("diff", "--cached")[:8000]
+    log = _git("log", "--oneline", "-5") or "(no history)"
 
-    # Use DSPy to generate the message
     try:
         configure_dspy(config.model)
-        result = generate_commit_message(diff=diff, recent_log=log or "(no history)")
+        result = generate_commit_message(diff=diff, recent_log=log)
         message = result.message.strip().strip("\"'")
 
         console.print(f"\n[bold]Proposed commit message:[/]\n  {message}\n")
@@ -234,7 +204,6 @@ def _handle_commit(session: Session, config: Config) -> None:
             print_dim("  Cancelled")
     except Exception as exc:
         print_error(f"DSPy commit failed: {exc}")
-        # Fall back to the agent loop for flexibility
         process_turn(
             "Look at `git diff --cached` and recent `git log --oneline -5`. "
             "Generate a concise commit message and run `git commit -m '<message>'`.",
