@@ -282,7 +282,7 @@ def main() -> None:
     histfile.parent.mkdir(parents=True, exist_ok=True)
     try:
         readline.read_history_file(str(histfile))
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         pass
     readline.set_history_length(1000)
 
