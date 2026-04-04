@@ -1,7 +1,7 @@
 [project]
 name = "smithereens"
 version = "0.1.0"
-description = "AI coding assistant — Claude Code as clean Python"
+description = "An experimental lightweight LLM interface."
 authors = [
     {name = "acmelaw", email = "acmelaw@protonmail.com"},
 ]
