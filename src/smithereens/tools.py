@@ -11,12 +11,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from .config import Config
 from .tui import print_dim, print_success, print_tool_header, print_tool_output
-
-if TYPE_CHECKING:
-    from .config import Config
 
 
 # ── Tool error ────────────────────────────────────────────────
@@ -54,44 +52,56 @@ def _schema(
 
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
-    _schema("bash",
-            "Execute a bash command and return its output. "
-            "Use for shell commands, installing packages, running tests, git operations, etc.",
-            {"command": _param("string", "The bash command to execute"),
-             "timeout": _param("number", "Timeout in seconds (default 30, max 300)")},
-            ["command"]),
-    _schema("read",
-            "Read a file and return its contents with line numbers. "
-            "Use to understand code before modifying it.",
-            {"file_path": _param("string", "Absolute or relative path to the file"),
-             "offset": _param("number", "Line number to start from (1-indexed, default 1)"),
-             "limit": _param("number", "Max lines to read (default 2000)")},
-            ["file_path"]),
-    _schema("edit",
-            "Perform exact string replacement in a file. "
-            "The old_string must match exactly (including whitespace). "
-            "Read the file first to get the exact text.",
-            {"file_path": _param("string", "Path to the file to edit"),
-             "old_string": _param("string", "Exact string to find and replace"),
-             "new_string": _param("string", "Replacement string")},
-            ["file_path", "old_string", "new_string"]),
-    _schema("write",
-            "Create or overwrite a file with given content.",
-            {"file_path": _param("string", "Path to the file to write"),
-             "content": _param("string", "Content to write")},
-            ["file_path", "content"]),
-    _schema("glob",
-            "Find files matching a glob pattern. Returns paths sorted by modification time.",
-            {"pattern": _param("string", "Glob pattern (e.g. '**/*.ts', 'src/**/*.py')"),
-             "path": _param("string", "Directory to search in (default: cwd)")},
-            ["pattern"]),
-    _schema("grep",
-            "Search file contents using ripgrep (or grep fallback). Supports regex patterns.",
-            {"pattern": _param("string", "Regex pattern to search for"),
-             "path": _param("string", "File or directory to search (default: cwd)"),
-             "glob": _param("string", "File pattern filter (e.g. '*.py')"),
-             "case_insensitive": _param("boolean", "Case-insensitive search")},
-            ["pattern"]),
+    _schema(
+        "bash",
+        "Execute a bash command and return its output. "
+        "Use for shell commands, installing packages, running tests, git operations, etc.",
+        {"command": _param("string", "The bash command to execute"),
+         "timeout": _param("number", "Timeout in seconds (default 30, max 300)")},
+        ["command"],
+    ),
+    _schema(
+        "read",
+        "Read a file and return its contents with line numbers. "
+        "Use to understand code before modifying it.",
+        {"file_path": _param("string", "Absolute or relative path to the file"),
+         "offset": _param("number", "Line number to start from (1-indexed, default 1)"),
+         "limit": _param("number", "Max lines to read (default 2000)")},
+        ["file_path"],
+    ),
+    _schema(
+        "edit",
+        "Perform exact string replacement in a file. "
+        "The old_string must match exactly (including whitespace). "
+        "Read the file first to get the exact text.",
+        {"file_path": _param("string", "Path to the file to edit"),
+         "old_string": _param("string", "Exact string to find and replace"),
+         "new_string": _param("string", "Replacement string")},
+        ["file_path", "old_string", "new_string"],
+    ),
+    _schema(
+        "write",
+        "Create or overwrite a file with given content.",
+        {"file_path": _param("string", "Path to the file to write"),
+         "content": _param("string", "Content to write")},
+        ["file_path", "content"],
+    ),
+    _schema(
+        "glob",
+        "Find files matching a glob pattern. Returns paths sorted by modification time.",
+        {"pattern": _param("string", "Glob pattern (e.g. '**/*.ts', 'src/**/*.py')"),
+         "path": _param("string", "Directory to search in (default: cwd)")},
+        ["pattern"],
+    ),
+    _schema(
+        "grep",
+        "Search file contents using ripgrep (or grep fallback). Supports regex patterns.",
+        {"pattern": _param("string", "Regex pattern to search for"),
+         "path": _param("string", "File or directory to search (default: cwd)"),
+         "glob": _param("string", "File pattern filter (e.g. '*.py')"),
+         "case_insensitive": _param("boolean", "Case-insensitive search")},
+        ["pattern"],
+    ),
 ]
 
 
@@ -150,7 +160,7 @@ def execute_tool(name: str, args: dict[str, Any], config: Config) -> str:
     if handler is None:
         return f"Error: unknown tool '{name}'"
     try:
-        return handler(args, config) if name == "bash" else handler(args)
+        return handler(args, config)
     except ToolError as exc:
         return f"Error: {exc}"
     except Exception as exc:
@@ -191,7 +201,7 @@ def _tool_bash(args: dict[str, Any], config: Config) -> str:
     return output.strip() or "(no output)"
 
 
-def _tool_read(args: dict[str, Any]) -> str:
+def _tool_read(args: dict[str, Any], _config: Config) -> str:
     file_path = args.get("file_path", "")
     offset = int(args.get("offset", 1))
     limit = int(args.get("limit", 2000))
@@ -214,7 +224,7 @@ def _tool_read(args: dict[str, Any]) -> str:
     return "\n".join(numbered)
 
 
-def _tool_edit(args: dict[str, Any]) -> str:
+def _tool_edit(args: dict[str, Any], _config: Config) -> str:
     file_path = args.get("file_path", "")
     old_string = args.get("old_string", "")
     new_string = args.get("new_string", "")
@@ -240,7 +250,7 @@ def _tool_edit(args: dict[str, Any]) -> str:
     return f"Edited {file_path}: replaced 1 occurrence"
 
 
-def _tool_write(args: dict[str, Any]) -> str:
+def _tool_write(args: dict[str, Any], _config: Config) -> str:
     file_path = args.get("file_path", "")
     content = args.get("content", "")
 
@@ -257,7 +267,7 @@ def _tool_write(args: dict[str, Any]) -> str:
     return f"Wrote {file_path} ({lines} lines)"
 
 
-def _tool_glob(args: dict[str, Any]) -> str:
+def _tool_glob(args: dict[str, Any], _config: Config) -> str:
     pattern = args.get("pattern", "")
     search_path = args.get("path", ".")
 
@@ -280,7 +290,7 @@ def _tool_glob(args: dict[str, Any]) -> str:
     return "\n".join(str(m) for m in matches) or "(no matches)"
 
 
-def _tool_grep(args: dict[str, Any]) -> str:
+def _tool_grep(args: dict[str, Any], _config: Config) -> str:
     pattern = args.get("pattern", "")
     search_path = args.get("path", ".")
     file_glob = args.get("glob", "")
@@ -315,7 +325,6 @@ def _tool_grep(args: dict[str, Any]) -> str:
 
 
 # Handler registry — maps tool name to implementation function.
-# bash is special-cased in execute_tool because it needs config.
 _TOOL_HANDLERS: dict[str, Any] = {
     "bash": _tool_bash,
     "read": _tool_read,

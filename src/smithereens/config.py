@@ -53,15 +53,13 @@ class Config:
 
     def __post_init__(self) -> None:
         """Apply env var overrides (env wins over dataclass defaults)."""
+        _field_map = {"model": str, "max_tokens": int, "permissions": str}
+        _attr_map = {"permissions": "permission_mode"}
         for env_key, cfg_key in _ENV_MAP.items():
             if value := os.environ.get(env_key):
-                match cfg_key:
-                    case "model":
-                        self.model = value
-                    case "max_tokens":
-                        self.max_tokens = int(value)
-                    case "permissions":
-                        self.permission_mode = value
+                attr = _attr_map.get(cfg_key, cfg_key)
+                convert = _field_map[cfg_key]
+                setattr(self, attr, convert(value))
 
     @classmethod
     def load(cls, config_path: Path | None = None) -> "Config":
