@@ -258,7 +258,7 @@ def main() -> None:
     parser.add_argument("prompt", nargs="*", help="Initial prompt (non-interactive)")
     args = parser.parse_args()
 
-    config = Config()
+    config = Config.load()
     if args.model:
         config.model = args.model
     if args.allow:
