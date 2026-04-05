@@ -1,0 +1,38 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.py[codz]
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv
+.pdm-python
+.pdm-build/
+__pypackages__
+
+# IDE
+.vscode/
+.idea/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Container files (no recursive builds)
+Containerfile
+Dockerfile
+compose.yaml
+docker-compose*.yml

@@ -59,9 +59,7 @@ def _load_claude_md_files(start: Path) -> str:
     if home_claude.is_file() and home_claude not in found:
         found.append(home_claude)
 
-    return "\n\n".join(
-        f"## From {f}\n\n{f.read_text()}" for f in reversed(found)
-    )
+    return "\n\n".join(f"## From {f}\n\n{f.read_text()}" for f in reversed(found))
 
 
 def _get_git_context() -> str:

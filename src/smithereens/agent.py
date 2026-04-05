@@ -49,7 +49,7 @@ def stream_response(session: Session, config: Config, system_prompt: str) -> Str
     output_tokens = 0
     finish_reason: str | None = None
 
-    messages = [{"role": "system", "content": system_prompt}] + session.messages
+    messages = [{"role": "system", "content": system_prompt}, *session.messages]
 
     try:
         response = litellm.completion(
@@ -94,9 +94,7 @@ def stream_response(session: Session, config: Config, system_prompt: str) -> Str
                     if tc.function:
                         if tc.function.name:
                             tc_acc[idx]["name"] = tc.function.name
-                            console.print(
-                                f"\n  [dim]\\[calling {tc.function.name}...][/]"
-                            )
+                            console.print(f"\n  [dim]\\[calling {tc.function.name}...][/]")
                         if tc.function.arguments:
                             tc_acc[idx]["arguments"] += tc.function.arguments
 
@@ -131,12 +129,14 @@ def stream_response(session: Session, config: Config, system_prompt: str) -> Str
             args = json.loads(entry["arguments"]) if entry["arguments"] else {}
         except json.JSONDecodeError:
             args = {}
-        parsed.append({
-            "id": entry["id"] or _gen_tool_id(),
-            "name": entry["name"],
-            "arguments": args,
-            "raw_arguments": entry["arguments"],
-        })
+        parsed.append(
+            {
+                "id": entry["id"] or _gen_tool_id(),
+                "name": entry["name"],
+                "arguments": args,
+                "raw_arguments": entry["arguments"],
+            }
+        )
 
     return StreamResult(
         content=content,
@@ -189,11 +189,13 @@ def process_turn(user_input: str, session: Session, config: Config) -> None:
         # Execute tools and record results
         for tc in result.tool_calls:
             tool_result = execute_tool(tc["name"], tc["arguments"], config)
-            session.messages.append({
-                "role": "tool",
-                "tool_call_id": tc["id"],
-                "content": tool_result,
-            })
+            session.messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": tool_result,
+                }
+            )
 
         sys.stdout.write("\n")
     else:
@@ -202,9 +204,6 @@ def process_turn(user_input: str, session: Session, config: Config) -> None:
     # Per-turn cost
     if result:
         cost = (
-            result.input_tokens * config.price_input
-            + result.output_tokens * config.price_output
+            result.input_tokens * config.price_input + result.output_tokens * config.price_output
         ) / 1_000_000
-        print_dim(
-            f"  ${cost:.4f} · {result.input_tokens:,} in / {result.output_tokens:,} out"
-        )
+        print_dim(f"  ${cost:.4f} · {result.input_tokens:,} in / {result.output_tokens:,} out")

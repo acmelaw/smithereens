@@ -16,7 +16,6 @@ from typing import Any
 from .config import Config
 from .tui import print_dim, print_success, print_tool_header, print_tool_output
 
-
 # ── Tool error ────────────────────────────────────────────────
 
 
@@ -56,17 +55,21 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "bash",
         "Execute a bash command and return its output. "
         "Use for shell commands, installing packages, running tests, git operations, etc.",
-        {"command": _param("string", "The bash command to execute"),
-         "timeout": _param("number", "Timeout in seconds (default 30, max 300)")},
+        {
+            "command": _param("string", "The bash command to execute"),
+            "timeout": _param("number", "Timeout in seconds (default 30, max 300)"),
+        },
         ["command"],
     ),
     _schema(
         "read",
         "Read a file and return its contents with line numbers. "
         "Use to understand code before modifying it.",
-        {"file_path": _param("string", "Absolute or relative path to the file"),
-         "offset": _param("number", "Line number to start from (1-indexed, default 1)"),
-         "limit": _param("number", "Max lines to read (default 2000)")},
+        {
+            "file_path": _param("string", "Absolute or relative path to the file"),
+            "offset": _param("number", "Line number to start from (1-indexed, default 1)"),
+            "limit": _param("number", "Max lines to read (default 2000)"),
+        },
         ["file_path"],
     ),
     _schema(
@@ -74,32 +77,40 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "Perform exact string replacement in a file. "
         "The old_string must match exactly (including whitespace). "
         "Read the file first to get the exact text.",
-        {"file_path": _param("string", "Path to the file to edit"),
-         "old_string": _param("string", "Exact string to find and replace"),
-         "new_string": _param("string", "Replacement string")},
+        {
+            "file_path": _param("string", "Path to the file to edit"),
+            "old_string": _param("string", "Exact string to find and replace"),
+            "new_string": _param("string", "Replacement string"),
+        },
         ["file_path", "old_string", "new_string"],
     ),
     _schema(
         "write",
         "Create or overwrite a file with given content.",
-        {"file_path": _param("string", "Path to the file to write"),
-         "content": _param("string", "Content to write")},
+        {
+            "file_path": _param("string", "Path to the file to write"),
+            "content": _param("string", "Content to write"),
+        },
         ["file_path", "content"],
     ),
     _schema(
         "glob",
         "Find files matching a glob pattern. Returns paths sorted by modification time.",
-        {"pattern": _param("string", "Glob pattern (e.g. '**/*.ts', 'src/**/*.py')"),
-         "path": _param("string", "Directory to search in (default: cwd)")},
+        {
+            "pattern": _param("string", "Glob pattern (e.g. '**/*.ts', 'src/**/*.py')"),
+            "path": _param("string", "Directory to search in (default: cwd)"),
+        },
         ["pattern"],
     ),
     _schema(
         "grep",
         "Search file contents using ripgrep (or grep fallback). Supports regex patterns.",
-        {"pattern": _param("string", "Regex pattern to search for"),
-         "path": _param("string", "File or directory to search (default: cwd)"),
-         "glob": _param("string", "File pattern filter (e.g. '*.py')"),
-         "case_insensitive": _param("boolean", "Case-insensitive search")},
+        {
+            "pattern": _param("string", "Regex pattern to search for"),
+            "path": _param("string", "File or directory to search (default: cwd)"),
+            "glob": _param("string", "File pattern filter (e.g. '*.py')"),
+            "case_insensitive": _param("boolean", "Case-insensitive search"),
+        },
         ["pattern"],
     ),
 ]
@@ -107,16 +118,52 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 
 # ── Permission system ─────────────────────────────────────────
 
-SAFE_COMMANDS = frozenset({
-    "ls", "cat", "head", "tail", "wc", "find", "grep", "rg", "ag",
-    "echo", "printf", "pwd", "date", "whoami", "uname", "env", "which",
-    "file", "stat", "du", "df", "tree", "sort", "uniq", "diff",
-    "md5", "shasum", "type", "readlink", "realpath",
-})
+SAFE_COMMANDS = frozenset(
+    {
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "wc",
+        "find",
+        "grep",
+        "rg",
+        "ag",
+        "echo",
+        "printf",
+        "pwd",
+        "date",
+        "whoami",
+        "uname",
+        "env",
+        "which",
+        "file",
+        "stat",
+        "du",
+        "df",
+        "tree",
+        "sort",
+        "uniq",
+        "diff",
+        "md5",
+        "shasum",
+        "type",
+        "readlink",
+        "realpath",
+    }
+)
 
-SAFE_GIT_SUBCOMMANDS = frozenset({
-    "log", "status", "diff", "show", "branch", "remote", "tag",
-})
+SAFE_GIT_SUBCOMMANDS = frozenset(
+    {
+        "log",
+        "status",
+        "diff",
+        "show",
+        "branch",
+        "remote",
+        "tag",
+    }
+)
 
 
 def _is_safe_command(command: str) -> bool:
@@ -141,9 +188,9 @@ def _ask_permission(command: str, config: Config) -> bool:
         return False
 
     try:
-        answer = input(
-            f"\033[33m  Allow Bash:\033[0m {command} \033[2m[y/n/a]\033[0m "
-        ).strip().lower()
+        answer = (
+            input(f"\033[33m  Allow Bash:\033[0m {command} \033[2m[y/n/a]\033[0m ").strip().lower()
+        )
         if answer == "a":
             config.permission_mode = "allow"
         return answer in ("y", "a")
@@ -184,11 +231,15 @@ def _tool_bash(args: dict[str, Any], config: Config) -> str:
 
     try:
         result = subprocess.run(
-            command, shell=True, capture_output=True, text=True,
-            timeout=timeout, cwd=os.getcwd(),
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=os.getcwd(),
         )
-    except subprocess.TimeoutExpired:
-        raise ToolError(f"Command timed out after {timeout}s")
+    except subprocess.TimeoutExpired as exc:
+        raise ToolError(f"Command timed out after {timeout}s") from exc
 
     output = result.stdout
     if result.stderr:
@@ -284,7 +335,7 @@ def _tool_glob(args: dict[str, Any], config: Config) -> str:
             reverse=True,
         )[:100]
     except Exception as exc:
-        raise ToolError(f"Glob failed: {exc}")
+        raise ToolError(f"Glob failed: {exc}") from exc
 
     print_dim(f"  ({len(matches)} files found)")
     return "\n".join(str(m) for m in matches) or "(no matches)"
@@ -316,8 +367,8 @@ def _tool_grep(args: dict[str, Any], config: Config) -> str:
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    except subprocess.TimeoutExpired:
-        raise ToolError("Search timed out")
+    except subprocess.TimeoutExpired as exc:
+        raise ToolError("Search timed out") from exc
 
     lines = result.stdout.strip().splitlines()[:250]
     print_dim(f"  ({len(lines)} matches)")

@@ -24,7 +24,6 @@ from .tui import (
     print_cost,
     print_dim,
     print_error,
-    print_prompt,
     print_separator,
     print_success,
     print_warning,
@@ -137,6 +136,8 @@ def _compact_with_dspy(session: Session, config: Config) -> None:
     except Exception:
         # Fallback: simple truncation
         session.maybe_compact()
+
+
 def _resume_into(target: str, session: Session, config: Config) -> None:
     """Resume a session, copying state into the current session."""
     try:
@@ -146,9 +147,7 @@ def _resume_into(target: str, session: Session, config: Config) -> None:
         session.total_input_tokens = resumed.total_input_tokens
         session.total_output_tokens = resumed.total_output_tokens
         session.session_id = resumed.session_id
-        print_success(
-            f"Resumed session: {resumed.session_id} ({resumed.turn_count} turns)"
-        )
+        print_success(f"Resumed session: {resumed.session_id} ({resumed.turn_count} turns)")
     except FileNotFoundError as exc:
         print_error(str(exc))
 
@@ -234,9 +233,7 @@ def main() -> None:
     )
     parser.add_argument("--resume", "-r", help="Resume a saved session")
     parser.add_argument("--model", "-m", help="Model to use")
-    parser.add_argument(
-        "--allow", action="store_true", help="Auto-approve all tool calls"
-    )
+    parser.add_argument("--allow", action="store_true", help="Auto-approve all tool calls")
     parser.add_argument("prompt", nargs="*", help="Initial prompt (non-interactive)")
     args = parser.parse_args()
 
@@ -354,8 +351,7 @@ def _exit_summary(session: Session, config: Config, histfile: Path) -> None:
             session.total_output_tokens,
         )
         print_dim(
-            f"  {session.turn_count} turns | model: {config.model}"
-            f" | session: {session.session_id}"
+            f"  {session.turn_count} turns | model: {config.model} | session: {session.session_id}"
         )
         print_dim(f"  resume with: smithereens --resume {session.session_id}")
 
