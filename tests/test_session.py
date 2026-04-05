@@ -1,13 +1,11 @@
 """Tests for Session — messages, persistence, cost tracking, compaction."""
 
 import json
-from pathlib import Path
 
 import pytest
 
 from smithereens.config import Config
 from smithereens.session import Session
-
 
 # ── Fixtures ──────────────────────────────────────────────────
 
@@ -110,7 +108,7 @@ class TestPersistence:
         session.add_user_message("hello")
         session.add_user_message("world")
         session.update_usage(100, 50)
-        path = session.save()
+        session.save()
 
         restored = Session.resume(session.session_id, config)
         assert len(restored.messages) == 2

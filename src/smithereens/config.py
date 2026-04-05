@@ -42,9 +42,7 @@ class Config:
     max_tokens: int = _DEFAULTS["max_tokens"]
     max_tool_turns: int = 25
     max_messages: int = 200  # ~150k context fits ~200 typical messages
-    sessions_dir: Path = field(
-        default_factory=lambda: Path.home() / ".smithereens" / "sessions"
-    )
+    sessions_dir: Path = field(default_factory=lambda: Path.home() / ".smithereens" / "sessions")
     permission_mode: str = _DEFAULTS["permissions"]
 
     # Pricing per 1M tokens (adjust per model)

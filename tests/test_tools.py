@@ -1,18 +1,13 @@
 """Tests for tools — each tool's contract, permission system, dispatch."""
 
-import os
-import stat
-
 import pytest
 
 from smithereens.config import Config
 from smithereens.tools import (
     TOOL_SCHEMAS,
-    ToolError,
     _is_safe_command,
     execute_tool,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────
 
@@ -107,9 +102,7 @@ class TestBashTool:
         assert "hello" in result
 
     def test_captures_stderr(self, allow_config):
-        result = execute_tool(
-            "bash", {"command": "echo err >&2"}, allow_config
-        )
+        result = execute_tool("bash", {"command": "echo err >&2"}, allow_config)
         assert "err" in result
 
     def test_reports_nonzero_exit_code(self, allow_config):
@@ -121,9 +114,7 @@ class TestBashTool:
         assert "Error" in result
 
     def test_denied_in_deny_mode(self, deny_config):
-        result = execute_tool(
-            "bash", {"command": "rm -rf /"}, deny_config
-        )
+        result = execute_tool("bash", {"command": "rm -rf /"}, deny_config)
         assert "Error" in result
         assert "denied" in result.lower() or "Permission" in result
 
@@ -136,9 +127,7 @@ class TestBashTool:
 
     def test_timeout_is_capped(self, allow_config):
         # Timeout > 300 should be capped to 300 (not error)
-        result = execute_tool(
-            "bash", {"command": "echo ok", "timeout": 9999}, allow_config
-        )
+        result = execute_tool("bash", {"command": "echo ok", "timeout": 9999}, allow_config)
         assert "ok" in result
 
 
@@ -163,25 +152,19 @@ class TestReadTool:
     def test_respects_offset(self, tmp_path, allow_config):
         f = tmp_path / "test.txt"
         f.write_text("a\nb\nc\nd\n")
-        result = execute_tool(
-            "read", {"file_path": str(f), "offset": 3}, allow_config
-        )
+        result = execute_tool("read", {"file_path": str(f), "offset": 3}, allow_config)
         assert "a" not in result or "3" in result  # starts at line 3
         assert "c" in result
 
     def test_respects_limit(self, tmp_path, allow_config):
         f = tmp_path / "test.txt"
         f.write_text("\n".join(f"line{i}" for i in range(100)))
-        result = execute_tool(
-            "read", {"file_path": str(f), "limit": 5}, allow_config
-        )
-        lines = [l for l in result.splitlines() if l.strip()]
+        result = execute_tool("read", {"file_path": str(f), "limit": 5}, allow_config)
+        lines = [line for line in result.splitlines() if line.strip()]
         assert len(lines) <= 5
 
     def test_missing_file_returns_error(self, allow_config):
-        result = execute_tool(
-            "read", {"file_path": "/tmp/no_such_file_xyz"}, allow_config
-        )
+        result = execute_tool("read", {"file_path": "/tmp/no_such_file_xyz"}, allow_config)
         assert "Error" in result
 
     def test_missing_path_returns_error(self, allow_config):
@@ -245,26 +228,20 @@ class TestEditTool:
 class TestWriteTool:
     def test_creates_new_file(self, tmp_path, allow_config):
         f = tmp_path / "new.txt"
-        result = execute_tool(
-            "write", {"file_path": str(f), "content": "hello"}, allow_config
-        )
+        result = execute_tool("write", {"file_path": str(f), "content": "hello"}, allow_config)
         assert "Wrote" in result
         assert f.read_text() == "hello"
 
     def test_creates_parent_directories(self, tmp_path, allow_config):
         f = tmp_path / "a" / "b" / "c.txt"
-        result = execute_tool(
-            "write", {"file_path": str(f), "content": "deep"}, allow_config
-        )
+        result = execute_tool("write", {"file_path": str(f), "content": "deep"}, allow_config)
         assert "Wrote" in result
         assert f.read_text() == "deep"
 
     def test_overwrites_existing_file(self, tmp_path, allow_config):
         f = tmp_path / "test.txt"
         f.write_text("old")
-        execute_tool(
-            "write", {"file_path": str(f), "content": "new"}, allow_config
-        )
+        execute_tool("write", {"file_path": str(f), "content": "new"}, allow_config)
         assert f.read_text() == "new"
 
     def test_missing_path_returns_error(self, allow_config):
@@ -280,17 +257,13 @@ class TestGlobTool:
         (tmp_path / "a.py").write_text("")
         (tmp_path / "b.py").write_text("")
         (tmp_path / "c.txt").write_text("")
-        result = execute_tool(
-            "glob", {"pattern": "*.py", "path": str(tmp_path)}, allow_config
-        )
+        result = execute_tool("glob", {"pattern": "*.py", "path": str(tmp_path)}, allow_config)
         assert "a.py" in result
         assert "b.py" in result
         assert "c.txt" not in result
 
     def test_no_matches_returns_indicator(self, tmp_path, allow_config):
-        result = execute_tool(
-            "glob", {"pattern": "*.xyz", "path": str(tmp_path)}, allow_config
-        )
+        result = execute_tool("glob", {"pattern": "*.xyz", "path": str(tmp_path)}, allow_config)
         assert "no matches" in result.lower() or result.strip() == ""
 
     def test_missing_pattern_returns_error(self, allow_config):
@@ -305,16 +278,12 @@ class TestGrepTool:
     def test_finds_pattern_in_files(self, tmp_path, allow_config):
         (tmp_path / "a.txt").write_text("foo bar baz\n")
         (tmp_path / "b.txt").write_text("nothing here\n")
-        result = execute_tool(
-            "grep", {"pattern": "foo", "path": str(tmp_path)}, allow_config
-        )
+        result = execute_tool("grep", {"pattern": "foo", "path": str(tmp_path)}, allow_config)
         assert "foo" in result
 
     def test_no_matches_returns_indicator(self, tmp_path, allow_config):
         (tmp_path / "a.txt").write_text("hello\n")
-        result = execute_tool(
-            "grep", {"pattern": "zzzzz", "path": str(tmp_path)}, allow_config
-        )
+        result = execute_tool("grep", {"pattern": "zzzzz", "path": str(tmp_path)}, allow_config)
         assert "no matches" in result.lower() or result.strip() == ""
 
     def test_missing_pattern_returns_error(self, allow_config):

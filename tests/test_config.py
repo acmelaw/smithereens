@@ -1,9 +1,5 @@
 """Tests for Config — env var loading, defaults, invariants."""
 
-import os
-
-import pytest
-
 from smithereens.config import Config
 
 

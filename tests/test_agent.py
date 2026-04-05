@@ -1,16 +1,11 @@
 """Tests for agent — system prompt, StreamResult, tool ID generation, DSPy sigs."""
 
 import os
-import re
 from dataclasses import fields
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from smithereens.agent import StreamResult, _gen_tool_id
 from smithereens.dspy_tasks import CommitMessage, ConversationSummary
 from smithereens.prompt import build_system_prompt
-
 
 # ── System prompt ─────────────────────────────────────────────
 
@@ -27,6 +22,7 @@ class TestBuildSystemPrompt:
 
     def test_includes_date(self):
         from datetime import datetime
+
         prompt = build_system_prompt()
         today = datetime.now().strftime("%Y-%m-%d")
         assert today in prompt

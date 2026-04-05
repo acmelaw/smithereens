@@ -16,17 +16,60 @@ console = Console(highlight=False)
 # ── Spinner ───────────────────────────────────────────────────
 
 SPINNER_VERBS = [
-    "Accomplishing", "Architecting", "Baking", "Beboppin'", "Bloviating",
-    "Boondoggling", "Bootstrapping", "Brewing", "Canoodling", "Caramelizing",
-    "Cerebrating", "Clauding", "Cogitating", "Combobulating", "Computing",
-    "Contemplating", "Cooking", "Crafting", "Crystallizing", "Deliberating",
-    "Discombobulating", "Fermenting", "Finagling", "Flibbertigibbeting",
-    "Gallivanting", "Generating", "Harmonizing", "Hatching", "Hullaballooing",
-    "Ideating", "Imagining", "Inferring", "Lollygagging", "Manifesting",
-    "Meandering", "Moonwalking", "Mulling", "Noodling", "Orchestrating",
-    "Percolating", "Pondering", "Processing", "Quantumizing", "Razzmatazzing",
-    "Recombobulating", "Ruminating", "Simmering", "Synthesizing", "Thinking",
-    "Tinkering", "Tomfoolering", "Vibing", "Whatchamacalliting", "Working",
+    "Accomplishing",
+    "Architecting",
+    "Baking",
+    "Beboppin'",
+    "Bloviating",
+    "Boondoggling",
+    "Bootstrapping",
+    "Brewing",
+    "Canoodling",
+    "Caramelizing",
+    "Cerebrating",
+    "Clauding",
+    "Cogitating",
+    "Combobulating",
+    "Computing",
+    "Contemplating",
+    "Cooking",
+    "Crafting",
+    "Crystallizing",
+    "Deliberating",
+    "Discombobulating",
+    "Fermenting",
+    "Finagling",
+    "Flibbertigibbeting",
+    "Gallivanting",
+    "Generating",
+    "Harmonizing",
+    "Hatching",
+    "Hullaballooing",
+    "Ideating",
+    "Imagining",
+    "Inferring",
+    "Lollygagging",
+    "Manifesting",
+    "Meandering",
+    "Moonwalking",
+    "Mulling",
+    "Noodling",
+    "Orchestrating",
+    "Percolating",
+    "Pondering",
+    "Processing",
+    "Quantumizing",
+    "Razzmatazzing",
+    "Recombobulating",
+    "Ruminating",
+    "Simmering",
+    "Synthesizing",
+    "Thinking",
+    "Tinkering",
+    "Tomfoolering",
+    "Vibing",
+    "Whatchamacalliting",
+    "Working",
     "Zigzagging",
 ]
 
@@ -50,9 +93,7 @@ class Spinner:
     def start(self) -> None:
         self._stop.clear()
         verb = random.choice(SPINNER_VERBS)
-        self._thread = threading.Thread(
-            target=self._animate, args=(verb,), daemon=True
-        )
+        self._thread = threading.Thread(target=self._animate, args=(verb,), daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
@@ -71,8 +112,7 @@ class Spinner:
             elapsed = int(time.monotonic() - start)
             frame = FRAMES[i % len(FRAMES)]
             sys.stdout.write(
-                f"\r\033[K\033[38;2;204;136;68m{frame} {verb}...\033[0m"
-                f" \033[2m({elapsed}s)\033[0m"
+                f"\r\033[K\033[38;2;204;136;68m{frame} {verb}...\033[0m \033[2m({elapsed}s)\033[0m"
             )
             sys.stdout.flush()
             i += 1
@@ -133,8 +173,7 @@ def print_banner(model: str) -> None:
     console.print()
     console.print("[orange3]╭──────────────────────────────────╮[/]")
     console.print(
-        "[orange3]│[/]  [bold white]smithereens[/]"
-        " [dim]— AI code assistant[/]  [orange3]│[/]"
+        "[orange3]│[/]  [bold white]smithereens[/] [dim]— AI code assistant[/]  [orange3]│[/]"
     )
     console.print("[orange3]╰──────────────────────────────────╯[/]")
     console.print(f"  [dim]model: {model}[/]")

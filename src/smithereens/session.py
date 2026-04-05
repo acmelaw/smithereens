@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -67,7 +67,7 @@ class Session:
             "messages": self.messages,
             "input_tokens": self.total_input_tokens,
             "output_tokens": self.total_output_tokens,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "turns": self.turn_count,
         }
         path = self.config.sessions_dir / f"{self.session_id}.json"
@@ -118,7 +118,4 @@ class Session:
     @classmethod
     def list_sessions(cls, config: Config) -> list[dict[str, Any]]:
         """Return metadata for the most recent saved sessions."""
-        return [
-            json.loads(f.read_text())
-            for f in cls._recent_sessions(config.sessions_dir)
-        ]
+        return [json.loads(f.read_text()) for f in cls._recent_sessions(config.sessions_dir)]

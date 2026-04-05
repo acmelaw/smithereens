@@ -1,0 +1,25 @@
+services:
+  smithereens:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: smithereens:latest
+    stdin_open: true     # keep stdin open for REPL
+    tty: true            # allocate a TTY for interactive use
+    volumes:
+      # Persist sessions and config across container restarts
+      - smithereens-data:/home/smithereens/.smithereens
+      # Mount the current working directory as the workspace
+      - .:/workspace
+    environment:
+      # Pass through API keys from the host environment
+      - OPENAI_API_KEY
+      - ANTHROPIC_API_KEY
+      - OLLAMA_API_BASE
+      # smithereens-specific configuration
+      - SMITHEREENS_MODEL
+      - SMITHEREENS_MAX_TOKENS
+      - SMITHEREENS_PERMISSIONS
+
+volumes:
+  smithereens-data:
